@@ -100,7 +100,11 @@ export function TransactionFields({
         </Field>
       )}
 
-      <Field id={`${id}-amount`} label="Nominal penjualan" error={errors.amount}>
+      <Field
+        id={`${id}-amount`}
+        label="Nominal penjualan"
+        error={errors.amount}
+      >
         <MoneyInput
           id={`${id}-amount`}
           name="amount"

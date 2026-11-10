@@ -75,7 +75,12 @@ export function LeadForm({
   }
 
   return (
-    <form noValidate onSubmit={handleSubmit} className="grid gap-4">
+    <form
+      noValidate
+      method="post"
+      onSubmit={handleSubmit}
+      className="grid gap-4"
+    >
       <Field id={`${id}-name`} label="Nama calon pembeli" error={errors.name}>
         <Input
           id={`${id}-name`}

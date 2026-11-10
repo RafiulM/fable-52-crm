@@ -65,7 +65,12 @@ function RecordSaleForm({
   }
 
   return (
-    <form noValidate onSubmit={handleSubmit} className="grid gap-4">
+    <form
+      noValidate
+      method="post"
+      onSubmit={handleSubmit}
+      className="grid gap-4"
+    >
       <TransactionFields
         idPrefix={formId}
         form={form}

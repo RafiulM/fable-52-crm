@@ -1,8 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pencil, Trash2 } from "lucide-react";
 import { AppDialog } from "@/components/app/app-dialog";
+import { Badge } from "@/components/app/badge";
 import { ConfirmDialog } from "@/components/app/confirm-dialog";
 import {
   DataTable,
@@ -25,106 +26,131 @@ import {
 import { TransactionFormCard } from "@/components/transactions/transaction-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { apiFetch, apiFetchList, errorMessage } from "@/lib/client-api";
 import { formatDate, formatRelativeDate, formatTime } from "@/lib/dates";
 import { formatDigits, rupiah } from "@/lib/format";
 import type { SalesMemberOption } from "@/types/dashboard";
-import type { TransactionInput, TransactionItem } from "@/types/transactions";
+import type {
+  TransactionInput,
+  TransactionItem,
+  TransactionListMeta,
+} from "@/types/transactions";
 
-// Terbaru dulu: tanggal transaksi, lalu waktu pencatatan.
-function sortTransactions(list: TransactionItem[]) {
-  return [...list].sort(
-    (a, b) =>
-      b.transactionDate.localeCompare(a.transactionDate) ||
-      b.createdAt.localeCompare(a.createdAt),
-  );
-}
+const PAGE_SIZE = 50;
 
 // Halaman Catat Penjualan: form transaksi baru di kiri, riwayat di kanan.
+// Riwayat dimuat dari /api/transactions; filter dan "muat lebih banyak"
+// dikerjakan server, jadi jumlah dan total selalu atas semua data yang cocok.
 export function TransactionsView({
   initialTransactions,
+  initialMeta,
   salesMembers,
+  filterMembers,
   today,
 }: {
   initialTransactions: TransactionItem[];
+  initialMeta: TransactionListMeta;
+  // Sales aktif, untuk mencatat transaksi baru.
   salesMembers: SalesMemberOption[];
+  // Semua sales termasuk yang nonaktif, untuk menyaring riwayat.
+  filterMembers: SalesMemberOption[];
   today: string;
 }) {
-  const [transactions, setTransactions] = useState(() =>
-    sortTransactions(initialTransactions),
-  );
+  const [transactions, setTransactions] = useState(initialTransactions);
+  const [meta, setMeta] = useState(initialMeta);
+  const [loading, setLoading] = useState(false);
+  const [loadFailure, setLoadFailure] = useState("");
   const [notice, setNotice] = useState<NoticeState>(null);
   const [editing, setEditing] = useState<TransactionItem | null>(null);
   const [deleting, setDeleting] = useState<TransactionItem | null>(null);
-  // Setelah baris dihapus tombolnya ikut hilang, jadi fokus pindah ke judul riwayat.
-  const historyTitleRef = useRef<HTMLHeadingElement>(null);
   const [filterSales, setFilterSales] = useState("");
   const [query, setQuery] = useState("");
-  const sequence = useRef(0);
+  // Transaksi yang dicatat di sesi ini, untuk tanda "Baru".
+  const [newIds, setNewIds] = useState<string[]>([]);
+  // Setelah baris dihapus tombolnya ikut hilang, jadi fokus pindah ke judul riwayat.
+  const historyTitleRef = useRef<HTMLHeadingElement>(null);
+  // Hanya jawaban permintaan terakhir yang dipakai; yang lebih lama diabaikan.
+  const requestId = useRef(0);
+  const firstRender = useRef(true);
 
-  // Pilihan filter memuat semua sales yang muncul di riwayat, termasuk yang
-  // sudah nonaktif, supaya transaksi lamanya tetap bisa dicari.
-  const filterOptions = [
-    ...new Map(
-      [
-        ...salesMembers.map((member) => [member.id, member.name] as const),
-        ...transactions.map(
-          (item) => [item.salesMemberId, item.salesName] as const,
-        ),
-      ].sort((a, b) => a[1].localeCompare(b[1])),
-    ),
-  ];
-  const needle = query.trim().toLowerCase();
-  const visible = transactions.filter(
-    (item) =>
-      (!filterSales || item.salesMemberId === filterSales) &&
-      (!needle || item.productDescription.toLowerCase().includes(needle)),
-  );
+  const needle = query.trim();
   const filtered = Boolean(filterSales || needle);
-  const total = visible.reduce((sum, item) => sum + item.amount, 0);
 
-  function salesName(id: string) {
-    return salesMembers.find((member) => member.id === id)?.name ?? "Sales";
+  async function load(offset: number, sales = filterSales, search = needle) {
+    const id = (requestId.current += 1);
+    setLoading(true);
+    setLoadFailure("");
+    try {
+      const params = new URLSearchParams({
+        limit: String(PAGE_SIZE),
+        offset: String(offset),
+      });
+      if (sales) params.set("salesMemberId", sales);
+      if (search) params.set("q", search);
+      const result = await apiFetchList<TransactionItem, TransactionListMeta>(
+        `/api/transactions?${params}`,
+      );
+      if (id !== requestId.current) return;
+      setTransactions((current) =>
+        offset === 0 ? result.data : [...current, ...result.data],
+      );
+      setMeta(result.meta);
+    } catch (error) {
+      if (id === requestId.current) setLoadFailure(errorMessage(error));
+    } finally {
+      if (id === requestId.current) setLoading(false);
+    }
   }
 
+  // Muat ulang saat filter berubah. Ketikan pencarian ditunggu sebentar supaya
+  // tidak meminta data di setiap huruf.
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void load(0, filterSales, needle);
+    }, 300);
+    return () => window.clearTimeout(timer);
+    // `load` sengaja tidak jadi dependensi: ia membaca filter lewat argumen.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterSales, needle]);
+
   async function createTransaction(input: TransactionInput) {
-    sequence.current += 1;
-    const created: TransactionItem = {
-      id: `baru-${sequence.current}`,
-      ...input,
-      salesName: salesName(input.salesMemberId),
-      createdAt: new Date().toISOString(),
-    };
-    setTransactions((list) => sortTransactions([created, ...list]));
+    const created = await apiFetch<TransactionItem>("/api/transactions", {
+      method: "POST",
+      body: input,
+    });
+    setNewIds((ids) => [created.id, ...ids]);
     setNotice({
       tone: "success",
-      message: `Transaksi ${rupiah(input.amount)} untuk ${created.salesName} tersimpan.`,
+      message: `Transaksi ${rupiah(created.amount)} untuk ${created.salesName} tersimpan.`,
     });
+    await load(0);
   }
 
   async function updateTransaction(id: string, input: TransactionInput) {
-    setTransactions((list) =>
-      sortTransactions(
-        list.map((item) =>
-          item.id === id
-            ? { ...item, ...input, salesName: salesName(input.salesMemberId) }
-            : item,
-        ),
-      ),
-    );
+    const updated = await apiFetch<TransactionItem>(`/api/transactions/${id}`, {
+      method: "PATCH",
+      body: input,
+    });
     setEditing(null);
     setNotice({
       tone: "success",
-      message: `Transaksi ${salesName(input.salesMemberId)} diperbarui menjadi ${rupiah(input.amount)}.`,
+      message: `Transaksi ${updated.salesName} diperbarui menjadi ${rupiah(updated.amount)}.`,
     });
+    await load(0);
   }
 
   async function deleteTransaction(target: TransactionItem) {
-    setTransactions((list) => list.filter((item) => item.id !== target.id));
+    await apiFetch(`/api/transactions/${target.id}`, { method: "DELETE" });
     setDeleting(null);
     setNotice({
       tone: "success",
       message: `Transaksi ${rupiah(target.amount)} milik ${target.salesName} dihapus.`,
     });
+    await load(0);
   }
 
   // Saat mengubah, sales pemilik transaksi tetap bisa dipilih walau sudah
@@ -169,7 +195,7 @@ export function TransactionsView({
           )}
         </Panel>
 
-        <Panel aria-labelledby="transaction-history-title">
+        <Panel aria-labelledby="transaction-history-title" aria-busy={loading}>
           <div className="grid gap-1">
             <PanelTitle
               id="transaction-history-title"
@@ -180,7 +206,8 @@ export function TransactionsView({
               Riwayat transaksi
             </PanelTitle>
             <MutedText>
-              {visible.length} transaksi · {rupiah(total)}
+              {meta.total.toLocaleString("id-ID")} transaksi ·{" "}
+              {rupiah(meta.totalAmount)}
               {filtered && " · sesuai filter"}
             </MutedText>
           </div>
@@ -193,9 +220,9 @@ export function TransactionsView({
                 onChange={(event) => setFilterSales(event.target.value)}
               >
                 <option value="">Semua sales</option>
-                {filterOptions.map(([id, name]) => (
-                  <option key={id} value={id}>
-                    {name}
+                {filterMembers.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.name}
                   </option>
                 ))}
               </NativeSelect>
@@ -208,6 +235,7 @@ export function TransactionsView({
                 id="transaction-filter-query"
                 type="search"
                 autoComplete="off"
+                maxLength={100}
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
               />
@@ -224,7 +252,19 @@ export function TransactionsView({
             </Button>
           </div>
 
-          {visible.length > 0 ? (
+          {loadFailure && (
+            <div
+              role="alert"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-destructive/30 px-4 py-3"
+            >
+              <p className="text-destructive">{loadFailure}</p>
+              <Button variant="outline" size="sm" onClick={() => load(0)}>
+                Coba lagi
+              </Button>
+            </div>
+          )}
+
+          {transactions.length > 0 ? (
             <DataTable>
               <TableHead>
                 <Th>Tanggal</Th>
@@ -234,14 +274,17 @@ export function TransactionsView({
                 <Th end>Aksi</Th>
               </TableHead>
               <TableBody>
-                {visible.map((item) => (
+                {transactions.map((item) => (
                   <Tr key={item.id}>
                     <Td label="Tanggal" full mono muted nowrap>
                       {formatRelativeDate(item.transactionDate, today)} ·{" "}
                       {formatTime(item.createdAt)}
                     </Td>
-                    <Td label="Sales" nowrap className="font-medium">
-                      {item.salesName}
+                    <Td label="Sales" nowrap>
+                      <span className="inline-flex flex-wrap items-center gap-2 font-medium">
+                        {item.salesName}
+                        {newIds.includes(item.id) && <Badge>Baru</Badge>}
+                      </span>
                     </Td>
                     <Td label="Produk" muted>
                       {item.productDescription || "Tanpa keterangan"}
@@ -271,6 +314,10 @@ export function TransactionsView({
                 ))}
               </TableBody>
             </DataTable>
+          ) : loading ? (
+            <MutedText className="border-t pt-6 pb-2 text-[15px]">
+              Memuat transaksi…
+            </MutedText>
           ) : filtered ? (
             <EmptyState title="Tidak ada transaksi yang cocok dengan filter.">
               Ubah pilihan sales atau kata pencarian, atau hapus filter untuk
@@ -281,6 +328,24 @@ export function TransactionsView({
               Isi form Transaksi baru untuk mencatat penjualan pertama. Angka di
               dashboard akan ikut terisi.
             </EmptyState>
+          )}
+
+          {transactions.length > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+              <MutedText>
+                Menampilkan {transactions.length.toLocaleString("id-ID")} dari{" "}
+                {meta.total.toLocaleString("id-ID")} transaksi
+              </MutedText>
+              {meta.hasMore && (
+                <Button
+                  variant="outline"
+                  disabled={loading}
+                  onClick={() => load(transactions.length)}
+                >
+                  {loading ? "Memuat…" : "Muat lebih banyak"}
+                </Button>
+              )}
+            </div>
           )}
         </Panel>
       </div>

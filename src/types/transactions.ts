@@ -17,3 +17,12 @@ export type TransactionInput = {
   productDescription: string;
   transactionDate: string;
 };
+
+// Ringkasan daftar sesuai filter, dihitung server atas semua baris yang cocok.
+export type TransactionListMeta = {
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+  total: number;
+  totalAmount: number;
+};

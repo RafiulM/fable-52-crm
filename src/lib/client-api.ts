@@ -16,7 +16,10 @@ const FALLBACK = "Permintaan belum berhasil. Coba lagi.";
 
 export async function apiFetch<Data>(
   url: string,
-  options: { method?: "GET" | "POST" | "PATCH" | "DELETE"; body?: unknown } = {},
+  options: {
+    method?: "GET" | "POST" | "PATCH" | "DELETE";
+    body?: unknown;
+  } = {},
 ): Promise<Data> {
   let response: Response;
   try {
@@ -26,7 +29,8 @@ export async function apiFetch<Data>(
         options.body === undefined
           ? undefined
           : { "Content-Type": "application/json" },
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      body:
+        options.body === undefined ? undefined : JSON.stringify(options.body),
     });
   } catch {
     throw new ApiClientError(
@@ -66,4 +70,28 @@ export async function apiFetch<Data>(
 
 export function errorMessage(error: unknown) {
   return error instanceof Error && error.message ? error.message : FALLBACK;
+}
+
+// Untuk endpoint daftar yang membalas `{ data, meta }`.
+export async function apiFetchList<Item, Meta>(url: string) {
+  let response: Response;
+  try {
+    response = await fetch(url);
+  } catch {
+    throw new ApiClientError(
+      "Tidak bisa terhubung ke server. Periksa koneksi lalu coba lagi.",
+      0,
+      "NETWORK_ERROR",
+    );
+  }
+  const payload = await response.json().catch(() => null);
+  if (!response.ok)
+    throw new ApiClientError(
+      response.status === 401
+        ? "Sesi kamu sudah berakhir. Masuk lagi untuk melanjutkan."
+        : "Data belum bisa dimuat. Coba lagi.",
+      response.status,
+      payload?.error?.code ?? "UNKNOWN",
+    );
+  return payload as { data: Item[]; meta: Meta };
 }

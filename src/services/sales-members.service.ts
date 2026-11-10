@@ -29,3 +29,18 @@ export async function isActiveSalesMember(userId: string, id: string) {
     .limit(1);
   return Boolean(member);
 }
+
+// Semua anggota milik akun ini, aktif maupun nonaktif, urut nama.
+export async function listSalesMembers(userId: string) {
+  return db
+    .select({
+      id: salesMembers.id,
+      name: salesMembers.name,
+      phone: salesMembers.phone,
+      isActive: salesMembers.isActive,
+      createdAt: salesMembers.createdAt,
+    })
+    .from(salesMembers)
+    .where(eq(salesMembers.userId, userId))
+    .orderBy(asc(salesMembers.name), asc(salesMembers.id));
+}
