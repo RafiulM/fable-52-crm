@@ -90,7 +90,7 @@ export function TransactionFormCard({
       )}
       <div className="flex flex-wrap justify-end gap-3 pt-1">
         {onCancel && (
-          <Button type="button" variant="outline" onClick={onCancel}>
+          <Button type="button" variant="outline" size="lg" onClick={onCancel}>
             Batal
           </Button>
         )}

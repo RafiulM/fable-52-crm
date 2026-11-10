@@ -1,6 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { Pencil } from "lucide-react";
+import { AppDialog } from "@/components/app/app-dialog";
 import {
   DataTable,
   EmptyRow,
@@ -23,7 +25,7 @@ import { TransactionFormCard } from "@/components/transactions/transaction-form"
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatDate, formatTime } from "@/lib/dates";
-import { rupiah } from "@/lib/format";
+import { formatDigits, rupiah } from "@/lib/format";
 import type { SalesMemberOption } from "@/types/dashboard";
 import type { TransactionInput, TransactionItem } from "@/types/transactions";
 
@@ -50,6 +52,7 @@ export function TransactionsView({
     sortTransactions(initialTransactions),
   );
   const [notice, setNotice] = useState<NoticeState>(null);
+  const [editing, setEditing] = useState<TransactionItem | null>(null);
   const [filterSales, setFilterSales] = useState("");
   const [query, setQuery] = useState("");
   const sequence = useRef(0);
@@ -92,6 +95,31 @@ export function TransactionsView({
       tone: "success",
       message: `Transaksi ${rupiah(input.amount)} untuk ${created.salesName} tersimpan.`,
     });
+  }
+
+  async function updateTransaction(id: string, input: TransactionInput) {
+    setTransactions((list) =>
+      sortTransactions(
+        list.map((item) =>
+          item.id === id
+            ? { ...item, ...input, salesName: salesName(input.salesMemberId) }
+            : item,
+        ),
+      ),
+    );
+    setEditing(null);
+    setNotice({
+      tone: "success",
+      message: `Transaksi ${salesName(input.salesMemberId)} diperbarui menjadi ${rupiah(input.amount)}.`,
+    });
+  }
+
+  // Saat mengubah, sales pemilik transaksi tetap bisa dipilih walau sudah
+  // nonaktif (tidak ada di daftar sales aktif).
+  function membersFor(item: TransactionItem) {
+    return salesMembers.some((member) => member.id === item.salesMemberId)
+      ? salesMembers
+      : [...salesMembers, { id: item.salesMemberId, name: item.salesName }];
   }
 
   return (
@@ -185,6 +213,7 @@ export function TransactionsView({
                 <Th>Sales</Th>
                 <Th>Produk</Th>
                 <Th end>Nominal</Th>
+                <Th end>Aksi</Th>
               </TableHead>
               <TableBody>
                 {visible.map((item) => (
@@ -202,6 +231,16 @@ export function TransactionsView({
                     <Td label="Nominal" end mono nowrap>
                       {rupiah(item.amount)}
                     </Td>
+                    <Td label="Aksi" end nowrap>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Ubah transaksi ${item.salesName} ${rupiah(item.amount)}`}
+                        onClick={() => setEditing(item)}
+                      >
+                        <Pencil aria-hidden="true" />
+                      </Button>
+                    </Td>
                   </Tr>
                 ))}
               </TableBody>
@@ -215,6 +254,32 @@ export function TransactionsView({
           )}
         </Panel>
       </div>
+
+      <AppDialog
+        open={Boolean(editing)}
+        onOpenChange={(open) => {
+          if (!open) setEditing(null);
+        }}
+        title="Ubah transaksi"
+        description="Perbaiki sales, tanggal, nominal, atau keterangan yang salah input."
+      >
+        {editing && (
+          <TransactionFormCard
+            key={editing.id}
+            salesMembers={membersFor(editing)}
+            today={today}
+            initial={{
+              salesId: editing.salesMemberId,
+              date: editing.transactionDate,
+              amount: formatDigits(String(editing.amount)),
+              product: editing.productDescription,
+            }}
+            submitLabel="Simpan perubahan"
+            onSubmit={(input) => updateTransaction(editing.id, input)}
+            onCancel={() => setEditing(null)}
+          />
+        )}
+      </AppDialog>
     </div>
   );
 }

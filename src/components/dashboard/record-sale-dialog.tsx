@@ -10,15 +10,8 @@ import {
   type TransactionForm,
   type TransactionFormErrors,
 } from "@/components/transactions/transaction-fields";
+import { AppDialog } from "@/components/app/app-dialog";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import type { SalesMemberOption } from "@/types/dashboard";
 
 export type RecordSaleInput = {
@@ -87,14 +80,14 @@ function RecordSaleForm({
           {failure}
         </p>
       )}
-      <DialogFooter>
-        <Button type="button" variant="outline" onClick={onCancel}>
+      <div className="flex flex-wrap justify-end gap-3 pt-1">
+        <Button type="button" variant="outline" size="lg" onClick={onCancel}>
           Batal
         </Button>
-        <Button type="submit" disabled={pending}>
+        <Button type="submit" size="lg" disabled={pending}>
           {pending ? "Menyimpan…" : "Simpan transaksi"}
         </Button>
-      </DialogFooter>
+      </div>
     </form>
   );
 }
@@ -114,28 +107,25 @@ export function RecordSaleDialog({
   onSubmit: (input: RecordSaleInput) => Promise<void>;
 }) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[440px]">
-        <DialogHeader>
-          <DialogTitle>Catat penjualan</DialogTitle>
-          <DialogDescription>
-            Transaksi dicatat untuk hari ini dan langsung masuk ke dashboard.
-          </DialogDescription>
-        </DialogHeader>
-        {salesMembers.length > 0 ? (
-          <RecordSaleForm
-            salesMembers={salesMembers}
-            today={today}
-            onSubmit={onSubmit}
-            onCancel={() => onOpenChange(false)}
-          />
-        ) : (
-          <p className="text-muted-foreground">
-            Belum ada anggota tim sales yang aktif. Tambahkan anggota dulu
-            sebelum mencatat penjualan.
-          </p>
-        )}
-      </DialogContent>
-    </Dialog>
+    <AppDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Catat penjualan"
+      description="Transaksi dicatat untuk hari ini dan langsung masuk ke dashboard."
+    >
+      {salesMembers.length > 0 ? (
+        <RecordSaleForm
+          salesMembers={salesMembers}
+          today={today}
+          onSubmit={onSubmit}
+          onCancel={() => onOpenChange(false)}
+        />
+      ) : (
+        <p className="text-muted-foreground">
+          Belum ada anggota tim sales yang aktif. Tambahkan anggota dulu sebelum
+          mencatat penjualan.
+        </p>
+      )}
+    </AppDialog>
   );
 }
