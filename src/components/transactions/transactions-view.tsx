@@ -10,6 +10,7 @@ import {
   Th,
   Tr,
 } from "@/components/app/data-table";
+import { Field, NativeSelect } from "@/components/app/field";
 import { Notice, type NoticeState } from "@/components/app/notice";
 import {
   MutedText,
@@ -19,6 +20,8 @@ import {
   PanelTitle,
 } from "@/components/app/panel";
 import { TransactionFormCard } from "@/components/transactions/transaction-form";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { formatDate, formatTime } from "@/lib/dates";
 import { rupiah } from "@/lib/format";
 import type { SalesMemberOption } from "@/types/dashboard";
@@ -47,8 +50,30 @@ export function TransactionsView({
     sortTransactions(initialTransactions),
   );
   const [notice, setNotice] = useState<NoticeState>(null);
+  const [filterSales, setFilterSales] = useState("");
+  const [query, setQuery] = useState("");
   const sequence = useRef(0);
-  const total = transactions.reduce((sum, item) => sum + item.amount, 0);
+
+  // Pilihan filter memuat semua sales yang muncul di riwayat, termasuk yang
+  // sudah nonaktif, supaya transaksi lamanya tetap bisa dicari.
+  const filterOptions = [
+    ...new Map(
+      [
+        ...salesMembers.map((member) => [member.id, member.name] as const),
+        ...transactions.map(
+          (item) => [item.salesMemberId, item.salesName] as const,
+        ),
+      ].sort((a, b) => a[1].localeCompare(b[1])),
+    ),
+  ];
+  const needle = query.trim().toLowerCase();
+  const visible = transactions.filter(
+    (item) =>
+      (!filterSales || item.salesMemberId === filterSales) &&
+      (!needle || item.productDescription.toLowerCase().includes(needle)),
+  );
+  const filtered = Boolean(filterSales || needle);
+  const total = visible.reduce((sum, item) => sum + item.amount, 0);
 
   function salesName(id: string) {
     return salesMembers.find((member) => member.id === id)?.name ?? "Sales";
@@ -109,11 +134,51 @@ export function TransactionsView({
               Riwayat transaksi
             </PanelTitle>
             <MutedText>
-              {transactions.length} transaksi · {rupiah(total)}
+              {visible.length} transaksi · {rupiah(total)}
+              {filtered && " · sesuai filter"}
             </MutedText>
           </div>
 
-          {transactions.length > 0 ? (
+          <div className="grid items-end gap-3 @min-[561px]/panel:grid-cols-[minmax(0,220px)_minmax(0,1fr)_auto]">
+            <Field id="transaction-filter-sales" label="Sales">
+              <NativeSelect
+                id="transaction-filter-sales"
+                value={filterSales}
+                onChange={(event) => setFilterSales(event.target.value)}
+              >
+                <option value="">Semua sales</option>
+                {filterOptions.map(([id, name]) => (
+                  <option key={id} value={id}>
+                    {name}
+                  </option>
+                ))}
+              </NativeSelect>
+            </Field>
+            <Field
+              id="transaction-filter-query"
+              label="Cari produk atau keterangan"
+            >
+              <Input
+                id="transaction-filter-query"
+                type="search"
+                autoComplete="off"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+              />
+            </Field>
+            <Button
+              variant="outline"
+              disabled={!filtered}
+              onClick={() => {
+                setFilterSales("");
+                setQuery("");
+              }}
+            >
+              Hapus filter
+            </Button>
+          </div>
+
+          {visible.length > 0 ? (
             <DataTable>
               <TableHead>
                 <Th>Tanggal</Th>
@@ -122,7 +187,7 @@ export function TransactionsView({
                 <Th end>Nominal</Th>
               </TableHead>
               <TableBody>
-                {transactions.map((item) => (
+                {visible.map((item) => (
                   <Tr key={item.id}>
                     <Td label="Tanggal" full mono muted nowrap>
                       {formatDate(item.transactionDate)} ·{" "}
@@ -142,7 +207,11 @@ export function TransactionsView({
               </TableBody>
             </DataTable>
           ) : (
-            <EmptyRow>Belum ada transaksi yang dicatat.</EmptyRow>
+            <EmptyRow>
+              {filtered
+                ? "Tidak ada transaksi yang cocok dengan filter."
+                : "Belum ada transaksi yang dicatat."}
+            </EmptyRow>
           )}
         </Panel>
       </div>
