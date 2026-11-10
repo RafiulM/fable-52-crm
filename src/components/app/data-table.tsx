@@ -125,3 +125,24 @@ export function EmptyState({
     </div>
   );
 }
+
+// Baris judul kelompok di dalam tabel (mis. nama sales di atas leads-nya).
+export function GroupRow({
+  colSpan,
+  children,
+}: {
+  colSpan: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <tr className="block border-t @min-[641px]/panel:table-row">
+      <th
+        colSpan={colSpan}
+        scope="colgroup"
+        className="block bg-muted px-3 py-2 text-left font-normal @min-[641px]/panel:table-cell"
+      >
+        {children}
+      </th>
+    </tr>
+  );
+}

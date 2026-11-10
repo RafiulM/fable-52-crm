@@ -1,12 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 import { Plus } from "lucide-react";
 import { AppDialog } from "@/components/app/app-dialog";
 import { Bar } from "@/components/app/bar";
 import {
   DataTable,
   EmptyState,
+  GroupRow,
   TableBody,
   TableHead,
   Td,
@@ -22,6 +23,7 @@ import {
   Panel,
   PanelTitle,
 } from "@/components/app/panel";
+import { Segmented } from "@/components/app/segmented";
 import { LeadForm } from "@/components/leads/lead-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,6 +53,7 @@ export function LeadsView({
   const [filterSales, setFilterSales] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [query, setQuery] = useState("");
+  const [grouping, setGrouping] = useState<"sales" | "none">("sales");
   const [adding, setAdding] = useState(false);
   const [notice, setNotice] = useState<NoticeState>(null);
   const sequence = useRef(0);
@@ -82,6 +85,14 @@ export function LeadsView({
         lead.contact.toLowerCase().includes(needle)),
   );
   const filtered = Boolean(filterSales || filterStatus || needle);
+  // Leads yang lolos filter, dikelompokkan per sales (urut nama sales).
+  const groups = members
+    .map(([id, name]) => ({
+      id,
+      name,
+      leads: visible.filter((lead) => lead.salesMemberId === id),
+    }))
+    .filter((group) => group.leads.length > 0);
 
   function salesName(id: string) {
     return members.find(([memberId]) => memberId === id)?.[1] ?? "Sales";
@@ -116,6 +127,48 @@ export function LeadsView({
       tone: "success",
       message: `Status ${lead.name} diubah menjadi ${LEAD_STATUS_LABELS[status]}. Konversi dihitung ulang.`,
     });
+  }
+
+  function renderRow(lead: LeadItem, showSales: boolean) {
+    return (
+      <Tr key={lead.id}>
+        <Td label="Calon pembeli" full>
+          <span className="grid gap-1">
+            <span className="font-medium">{lead.name}</span>
+            <span className="font-mono text-[13px] text-muted-foreground">
+              {lead.contact || "Belum ada kontak"}
+            </span>
+          </span>
+        </Td>
+        {showSales && (
+          <Td label="Sales" nowrap>
+            {lead.salesName}
+          </Td>
+        )}
+        <Td label="Status">
+          <NativeSelect
+            aria-label={`Status ${lead.name}`}
+            value={lead.status}
+            onChange={(event) =>
+              changeStatus(lead, event.target.value as LeadStatus)
+            }
+            className="min-w-[7.5rem]"
+          >
+            {LEAD_STATUSES.map((status) => (
+              <option key={status} value={status}>
+                {LEAD_STATUS_LABELS[status]}
+              </option>
+            ))}
+          </NativeSelect>
+        </Td>
+        <Td label="Catatan" muted>
+          {lead.notes || "—"}
+        </Td>
+        <Td label="Diperbarui" end mono muted nowrap>
+          {formatRelativeDate(todayIso(new Date(lead.updatedAt)), today)}
+        </Td>
+      </Tr>
+    );
   }
 
   return (
@@ -178,12 +231,23 @@ export function LeadsView({
         </Panel>
 
         <Panel aria-labelledby="leads-list-title">
-          <div className="grid gap-1">
-            <PanelTitle id="leads-list-title">Daftar leads</PanelTitle>
-            <MutedText>
-              {visible.length} dari {leads.length} leads
-              {filtered && " · sesuai filter"}
-            </MutedText>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="grid gap-1">
+              <PanelTitle id="leads-list-title">Daftar leads</PanelTitle>
+              <MutedText>
+                {visible.length} dari {leads.length} leads
+                {filtered && " · sesuai filter"}
+              </MutedText>
+            </div>
+            <Segmented
+              label="Susunan daftar"
+              value={grouping}
+              options={[
+                { value: "sales", label: "Per sales" },
+                { value: "none", label: "Semua" },
+              ]}
+              onChange={setGrouping}
+            />
           </div>
 
           <div className="grid items-end gap-3 @min-[641px]/panel:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.4fr)_auto]">
@@ -241,52 +305,31 @@ export function LeadsView({
             <DataTable>
               <TableHead>
                 <Th>Calon pembeli</Th>
-                <Th>Sales</Th>
+                {grouping === "none" && <Th>Sales</Th>}
                 <Th>Status</Th>
                 <Th>Catatan</Th>
                 <Th end>Diperbarui</Th>
               </TableHead>
               <TableBody>
-                {visible.map((lead) => (
-                  <Tr key={lead.id}>
-                    <Td label="Calon pembeli" full>
-                      <span className="grid gap-1">
-                        <span className="font-medium">{lead.name}</span>
-                        <span className="font-mono text-[13px] text-muted-foreground">
-                          {lead.contact || "Belum ada kontak"}
-                        </span>
-                      </span>
-                    </Td>
-                    <Td label="Sales" nowrap>
-                      {lead.salesName}
-                    </Td>
-                    <Td label="Status">
-                      <NativeSelect
-                        aria-label={`Status ${lead.name}`}
-                        value={lead.status}
-                        onChange={(event) =>
-                          changeStatus(lead, event.target.value as LeadStatus)
-                        }
-                        className="min-w-[7.5rem]"
-                      >
-                        {LEAD_STATUSES.map((status) => (
-                          <option key={status} value={status}>
-                            {LEAD_STATUS_LABELS[status]}
-                          </option>
-                        ))}
-                      </NativeSelect>
-                    </Td>
-                    <Td label="Catatan" muted>
-                      {lead.notes || "—"}
-                    </Td>
-                    <Td label="Diperbarui" end mono muted nowrap>
-                      {formatRelativeDate(
-                        todayIso(new Date(lead.updatedAt)),
-                        today,
-                      )}
-                    </Td>
-                  </Tr>
-                ))}
+                {grouping === "sales"
+                  ? groups.map((group) => {
+                      const won = group.leads.filter(
+                        (lead) => lead.status === WON_STATUS,
+                      ).length;
+                      return (
+                        <Fragment key={group.id}>
+                          <GroupRow colSpan={4}>
+                            <span className="font-medium">{group.name}</span>
+                            <span className="text-[13px] text-muted-foreground">
+                              {" "}
+                              · {group.leads.length} leads · {won} jadi beli
+                            </span>
+                          </GroupRow>
+                          {group.leads.map((lead) => renderRow(lead, false))}
+                        </Fragment>
+                      );
+                    })
+                  : visible.map((lead) => renderRow(lead, true))}
               </TableBody>
             </DataTable>
           ) : filtered ? (
