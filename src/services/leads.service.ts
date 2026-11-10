@@ -56,7 +56,7 @@ export async function listLeads(userId: string, input: ListLeadsInput) {
       : undefined,
   );
   const recent = [desc(leads.leadDate), desc(leads.createdAt), desc(leads.id)];
-  const [rows, [summary]] = await Promise.all([
+  const [rows, [summary], bySales] = await Promise.all([
     db
       .select(fields)
       .from(leads)
@@ -73,6 +73,19 @@ export async function listLeads(userId: string, input: ListLeadsInput) {
       .select({ total: sql`count(*)`.mapWith(Number) })
       .from(leads)
       .where(where),
+    // Jumlah per sales atas semua lead yang cocok dengan filter, untuk judul
+    // kelompok di daftar (halaman yang dikirim bisa hanya sebagian).
+    db
+      .select({
+        salesMemberId: leads.salesMemberId,
+        total: sql`count(*)`.mapWith(Number),
+        won: sql`count(*) filter (where ${leads.status} = ${WON_STATUS})`.mapWith(
+          Number,
+        ),
+      })
+      .from(leads)
+      .where(where)
+      .groupBy(leads.salesMemberId),
   ]);
   return {
     data: rows.slice(0, input.limit),
@@ -81,6 +94,7 @@ export async function listLeads(userId: string, input: ListLeadsInput) {
       offset: input.offset,
       hasMore: rows.length > input.limit,
       total: summary.total,
+      bySales,
     },
   };
 }

@@ -22,3 +22,20 @@ export type LeadInput = {
   status: LeadStatus;
   notes: string;
 };
+
+// Ringkasan daftar sesuai filter, dihitung server atas semua lead yang cocok.
+export type LeadListMeta = {
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+  total: number;
+  bySales: { salesMemberId: string; total: number; won: number }[];
+};
+
+// Konversi satu sales: persentasenya = won / total.
+export type LeadConversionRow = {
+  salesId: string;
+  name: string;
+  total: number;
+  won: number;
+};

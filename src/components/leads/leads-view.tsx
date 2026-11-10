@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { Plus } from "lucide-react";
 import { AppDialog } from "@/components/app/app-dialog";
 import { Bar } from "@/components/app/bar";
@@ -27,107 +27,182 @@ import { Segmented } from "@/components/app/segmented";
 import { LeadForm } from "@/components/leads/lead-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { apiFetch, apiFetchList, errorMessage } from "@/lib/client-api";
 import { formatRelativeDate, todayIso } from "@/lib/dates";
 import { persen, ratio } from "@/lib/format";
 import {
   LEAD_STATUSES,
   LEAD_STATUS_LABELS,
-  WON_STATUS,
   type LeadStatus,
 } from "@/lib/lead-status";
 import type { SalesMemberOption } from "@/types/dashboard";
-import type { LeadInput, LeadItem } from "@/types/leads";
+import type {
+  LeadConversionRow,
+  LeadInput,
+  LeadItem,
+  LeadListMeta,
+} from "@/types/leads";
 
-// Halaman Leads & Kontak: konversi tiap sales di kiri (dihitung otomatis dari
+const PAGE_SIZE = 100;
+type Grouping = "sales" | "none";
+type ConversionPeriod = "month" | "all";
+
+// Halaman Leads & Kontak: konversi tiap sales di kiri (dihitung server dari
 // status lead), daftar leads dengan filter dan ubah status di kanan.
 export function LeadsView({
   initialLeads,
+  initialMeta,
+  initialConversion,
   salesMembers,
+  filterMembers,
   today,
 }: {
   initialLeads: LeadItem[];
+  initialMeta: LeadListMeta;
+  // Konversi bulan berjalan.
+  initialConversion: LeadConversionRow[];
+  // Sales aktif, untuk lead baru.
   salesMembers: SalesMemberOption[];
+  // Semua sales termasuk yang nonaktif, untuk menyaring daftar.
+  filterMembers: SalesMemberOption[];
   today: string;
 }) {
   const [leads, setLeads] = useState(initialLeads);
+  const [meta, setMeta] = useState(initialMeta);
+  const [conversion, setConversion] = useState(initialConversion);
+  const [period, setPeriod] = useState<ConversionPeriod>("month");
+  const [grouping, setGrouping] = useState<Grouping>("sales");
   const [filterSales, setFilterSales] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [query, setQuery] = useState("");
-  const [grouping, setGrouping] = useState<"sales" | "none">("sales");
+  const [loading, setLoading] = useState(false);
+  const [loadFailure, setLoadFailure] = useState("");
+  const [savingId, setSavingId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [notice, setNotice] = useState<NoticeState>(null);
-  const sequence = useRef(0);
+  // Hanya jawaban permintaan terakhir yang dipakai; yang lebih lama diabaikan.
+  const requestId = useRef(0);
+  const firstRender = useRef(true);
 
-  // Semua sales yang relevan: yang aktif, plus pemilik lead lama yang nonaktif.
-  const members = [
-    ...new Map(
-      [
-        ...salesMembers.map((member) => [member.id, member.name] as const),
-        ...leads.map((lead) => [lead.salesMemberId, lead.salesName] as const),
-      ].sort((a, b) => a[1].localeCompare(b[1])),
-    ),
-  ];
-
-  const conversion = members.map(([id, name]) => {
-    const own = leads.filter((lead) => lead.salesMemberId === id);
-    const won = own.filter((lead) => lead.status === WON_STATUS).length;
-    return { id, name, total: own.length, won };
-  });
-  const totalWon = leads.filter((lead) => lead.status === WON_STATUS).length;
-
-  const needle = query.trim().toLowerCase();
-  const visible = leads.filter(
-    (lead) =>
-      (!filterSales || lead.salesMemberId === filterSales) &&
-      (!filterStatus || lead.status === filterStatus) &&
-      (!needle ||
-        lead.name.toLowerCase().includes(needle) ||
-        lead.contact.toLowerCase().includes(needle)),
-  );
+  const needle = query.trim();
   const filtered = Boolean(filterSales || filterStatus || needle);
-  // Leads yang lolos filter, dikelompokkan per sales (urut nama sales).
-  const groups = members
-    .map(([id, name]) => ({
-      id,
-      name,
-      leads: visible.filter((lead) => lead.salesMemberId === id),
-    }))
-    .filter((group) => group.leads.length > 0);
+  const totalLeads = conversion.reduce((sum, row) => sum + row.total, 0);
+  const totalWon = conversion.reduce((sum, row) => sum + row.won, 0);
 
-  function salesName(id: string) {
-    return members.find(([memberId]) => memberId === id)?.[1] ?? "Sales";
+  async function load(offset: number, sort: Grouping = grouping) {
+    const id = (requestId.current += 1);
+    setLoading(true);
+    setLoadFailure("");
+    try {
+      const params = new URLSearchParams({
+        limit: String(PAGE_SIZE),
+        offset: String(offset),
+        sort: sort === "sales" ? "sales" : "recent",
+      });
+      if (filterSales) params.set("salesMemberId", filterSales);
+      if (filterStatus) params.set("status", filterStatus);
+      if (needle) params.set("q", needle);
+      const result = await apiFetchList<LeadItem, LeadListMeta>(
+        `/api/leads?${params}`,
+      );
+      if (id !== requestId.current) return;
+      setLeads((current) =>
+        offset === 0 ? result.data : [...current, ...result.data],
+      );
+      setMeta(result.meta);
+    } catch (error) {
+      if (id === requestId.current) setLoadFailure(errorMessage(error));
+    } finally {
+      if (id === requestId.current) setLoading(false);
+    }
+  }
+
+  async function loadConversion(next: ConversionPeriod = period) {
+    try {
+      setConversion(
+        await apiFetch<LeadConversionRow[]>(
+          `/api/leads/conversion?period=${next}`,
+        ),
+      );
+    } catch (error) {
+      setNotice({ tone: "error", message: errorMessage(error) });
+    }
+  }
+
+  // Muat ulang daftar saat filter atau susunan berubah. Ketikan pencarian
+  // ditunggu sebentar supaya tidak meminta data di setiap huruf.
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void load(0);
+    }, 300);
+    return () => window.clearTimeout(timer);
+    // `load` membaca filter dari state render ini; cukup dipicu oleh nilainya.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterSales, filterStatus, needle, grouping]);
+
+  function changePeriod(next: ConversionPeriod) {
+    setPeriod(next);
+    void loadConversion(next);
   }
 
   async function createLead(input: LeadInput) {
-    sequence.current += 1;
-    const created: LeadItem = {
-      id: `baru-${sequence.current}`,
-      ...input,
-      salesName: salesName(input.salesMemberId),
-      leadDate: today,
-      updatedAt: new Date().toISOString(),
-    };
-    setLeads((list) => [created, ...list]);
+    const created = await apiFetch<LeadItem>("/api/leads", {
+      method: "POST",
+      body: input,
+    });
     setAdding(false);
     setNotice({
       tone: "success",
       message: `Lead ${created.name} ditambahkan untuk ${created.salesName}.`,
     });
+    await Promise.all([load(0), loadConversion()]);
   }
 
   async function changeStatus(lead: LeadItem, status: LeadStatus) {
-    setLeads((list) =>
-      list.map((item) =>
-        item.id === lead.id
-          ? { ...item, status, updatedAt: new Date().toISOString() }
-          : item,
-      ),
-    );
-    setNotice({
-      tone: "success",
-      message: `Status ${lead.name} diubah menjadi ${LEAD_STATUS_LABELS[status]}. Konversi dihitung ulang.`,
-    });
+    setSavingId(lead.id);
+    try {
+      const updated = await apiFetch<LeadItem>(`/api/leads/${lead.id}`, {
+        method: "PATCH",
+        body: { status },
+      });
+      setLeads((list) =>
+        list.map((item) => (item.id === updated.id ? updated : item)),
+      );
+      setNotice({
+        tone: "success",
+        message: `Status ${lead.name} diubah menjadi ${LEAD_STATUS_LABELS[status]}. Konversi dihitung ulang.`,
+      });
+      // Jumlah per sales dan konversi berubah; ambil ulang dari server.
+      await Promise.all([loadConversion(), load(0)]);
+    } catch (error) {
+      setNotice({ tone: "error", message: errorMessage(error) });
+    } finally {
+      setSavingId(null);
+    }
   }
+
+  // Leads yang sudah dimuat, dikelompokkan per sales. Tiap sales hanya punya
+  // satu kelompok walau datanya belum berurutan per sales (mis. sesaat setelah
+  // susunan diganti), supaya key kelompok tidak pernah ganda.
+  const groupsBySales = new Map<
+    string,
+    { id: string; name: string; leads: LeadItem[] }
+  >();
+  for (const lead of leads) {
+    const group = groupsBySales.get(lead.salesMemberId);
+    if (group) group.leads.push(lead);
+    else
+      groupsBySales.set(lead.salesMemberId, {
+        id: lead.salesMemberId,
+        name: lead.salesName,
+        leads: [lead],
+      });
+  }
+  const groups = [...groupsBySales.values()];
 
   function renderRow(lead: LeadItem, showSales: boolean) {
     return (
@@ -149,6 +224,7 @@ export function LeadsView({
           <NativeSelect
             aria-label={`Status ${lead.name}`}
             value={lead.status}
+            disabled={savingId === lead.id}
             onChange={(event) =>
               changeStatus(lead, event.target.value as LeadStatus)
             }
@@ -192,22 +268,35 @@ export function LeadsView({
 
       <div className="grid items-start gap-6 @min-[1000px]/page:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
         <Panel aria-labelledby="leads-conversion-title">
-          <div className="grid gap-1">
+          <div className="grid gap-3">
             <PanelTitle id="leads-conversion-title">
               Konversi per sales
             </PanelTitle>
-            <p className="font-mono text-[25px] leading-[1.2]">
-              {persen(ratio(totalWon, leads.length))}
-            </p>
-            <MutedText>
-              {totalWon} dari {leads.length} leads tim jadi beli
-            </MutedText>
+            <Segmented
+              label="Periode konversi"
+              value={period}
+              options={[
+                { value: "month", label: "Bulan ini" },
+                { value: "all", label: "Semua waktu" },
+              ]}
+              onChange={changePeriod}
+              className="justify-self-start"
+            />
+            <div className="grid gap-1">
+              <p className="font-mono text-[25px] leading-[1.2]">
+                {persen(ratio(totalWon, totalLeads))}
+              </p>
+              <MutedText>
+                {totalWon.toLocaleString("id-ID")} dari{" "}
+                {totalLeads.toLocaleString("id-ID")} leads tim jadi beli
+              </MutedText>
+            </div>
           </div>
 
           {conversion.length > 0 ? (
             <ul className="grid gap-4">
               {conversion.map((row) => (
-                <li key={row.id} className="grid gap-2">
+                <li key={row.salesId} className="grid gap-2">
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <span className="font-medium">{row.name}</span>
                     <span className="font-mono">
@@ -230,12 +319,12 @@ export function LeadsView({
           )}
         </Panel>
 
-        <Panel aria-labelledby="leads-list-title">
+        <Panel aria-labelledby="leads-list-title" aria-busy={loading}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="grid gap-1">
               <PanelTitle id="leads-list-title">Daftar leads</PanelTitle>
               <MutedText>
-                {visible.length} dari {leads.length} leads
+                {meta.total.toLocaleString("id-ID")} leads
                 {filtered && " · sesuai filter"}
               </MutedText>
             </div>
@@ -244,7 +333,7 @@ export function LeadsView({
               value={grouping}
               options={[
                 { value: "sales", label: "Per sales" },
-                { value: "none", label: "Semua" },
+                { value: "none", label: "Terbaru" },
               ]}
               onChange={setGrouping}
             />
@@ -258,9 +347,9 @@ export function LeadsView({
                 onChange={(event) => setFilterSales(event.target.value)}
               >
                 <option value="">Semua sales</option>
-                {members.map(([id, name]) => (
-                  <option key={id} value={id}>
-                    {name}
+                {filterMembers.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.name}
                   </option>
                 ))}
               </NativeSelect>
@@ -284,6 +373,7 @@ export function LeadsView({
                 id="leads-filter-query"
                 type="search"
                 autoComplete="off"
+                maxLength={100}
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
               />
@@ -301,7 +391,19 @@ export function LeadsView({
             </Button>
           </div>
 
-          {visible.length > 0 ? (
+          {loadFailure && (
+            <div
+              role="alert"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-destructive/30 px-4 py-3"
+            >
+              <p className="text-destructive">{loadFailure}</p>
+              <Button variant="outline" size="sm" onClick={() => load(0)}>
+                Coba lagi
+              </Button>
+            </div>
+          )}
+
+          {leads.length > 0 ? (
             <DataTable>
               <TableHead>
                 <Th>Calon pembeli</Th>
@@ -313,25 +415,31 @@ export function LeadsView({
               <TableBody>
                 {grouping === "sales"
                   ? groups.map((group) => {
-                      const won = group.leads.filter(
-                        (lead) => lead.status === WON_STATUS,
-                      ).length;
+                      const counts = meta.bySales.find(
+                        (row) => row.salesMemberId === group.id,
+                      );
                       return (
                         <Fragment key={group.id}>
                           <GroupRow colSpan={4}>
                             <span className="font-medium">{group.name}</span>
-                            <span className="text-[13px] text-muted-foreground">
-                              {" "}
-                              · {group.leads.length} leads · {won} jadi beli
-                            </span>
+                            {counts && (
+                              <span className="text-[13px] text-muted-foreground">
+                                {" "}
+                                · {counts.total} leads · {counts.won} jadi beli
+                              </span>
+                            )}
                           </GroupRow>
                           {group.leads.map((lead) => renderRow(lead, false))}
                         </Fragment>
                       );
                     })
-                  : visible.map((lead) => renderRow(lead, true))}
+                  : leads.map((lead) => renderRow(lead, true))}
               </TableBody>
             </DataTable>
+          ) : loading ? (
+            <MutedText className="border-t pt-6 pb-2 text-[15px]">
+              Memuat leads…
+            </MutedText>
           ) : filtered ? (
             <EmptyState title="Tidak ada lead yang cocok dengan filter.">
               Ubah pilihan sales, status, atau kata pencarian, atau hapus filter
@@ -342,6 +450,24 @@ export function LeadsView({
               Tekan Tambah lead untuk menyimpan calon pembeli pertama dan
               menugaskannya ke seorang sales.
             </EmptyState>
+          )}
+
+          {leads.length > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+              <MutedText>
+                Menampilkan {leads.length.toLocaleString("id-ID")} dari{" "}
+                {meta.total.toLocaleString("id-ID")} leads
+              </MutedText>
+              {meta.hasMore && (
+                <Button
+                  variant="outline"
+                  disabled={loading}
+                  onClick={() => load(leads.length)}
+                >
+                  {loading ? "Memuat…" : "Muat lebih banyak"}
+                </Button>
+              )}
+            </div>
           )}
         </Panel>
       </div>

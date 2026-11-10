@@ -1,20 +1,41 @@
 import type { Metadata } from "next";
 import { LeadsView } from "@/components/leads/leads-view";
-import { todayIso } from "@/lib/dates";
+import { periodRange, todayIso } from "@/lib/dates";
 import { requireSession } from "@/lib/session";
-import { getMockLeads } from "@/mocks/leads";
-import { MOCK_SALES_MEMBERS } from "@/mocks/transactions";
+import { getLeadConversion, listLeads } from "@/services/leads.service";
+import { listSalesMembers } from "@/services/sales-members.service";
 
 export const metadata: Metadata = { title: "Leads & Kontak" };
 
 export default async function LeadsPage() {
-  await requireSession();
-  // Sementara memakai data tiruan; nanti diganti layanan leads.
+  const { user } = await requireSession();
+  const today = todayIso();
+  const [list, conversion, members] = await Promise.all([
+    listLeads(user.id, { limit: 100, offset: 0, sort: "sales" }),
+    getLeadConversion(user.id, periodRange("month", today)),
+    listSalesMembers(user.id),
+  ]);
+
   return (
     <LeadsView
-      initialLeads={getMockLeads()}
-      salesMembers={MOCK_SALES_MEMBERS}
-      today={todayIso()}
+      initialLeads={list.data.map((lead) => ({
+        id: lead.id,
+        salesMemberId: lead.salesMemberId,
+        salesName: lead.salesName,
+        name: lead.name,
+        contact: lead.contact,
+        status: lead.status,
+        notes: lead.notes,
+        leadDate: lead.leadDate,
+        updatedAt: lead.updatedAt.toISOString(),
+      }))}
+      initialMeta={list.meta}
+      initialConversion={conversion}
+      salesMembers={members
+        .filter((member) => member.isActive)
+        .map(({ id, name }) => ({ id, name }))}
+      filterMembers={members.map(({ id, name }) => ({ id, name }))}
+      today={today}
     />
   );
 }
