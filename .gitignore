@@ -20,3 +20,8 @@ coverage/
 .vercel/
 .claude/settings.local.json
 .codex/config.local.toml
+
+# File kerja sync NgodingPakeAI (config.json tetap di-commit)
+.ngodingpakeai/pending.json
+.ngodingpakeai/summaries.json
+.ngodingpakeai/index/

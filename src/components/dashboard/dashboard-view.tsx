@@ -1,8 +1,8 @@
 "use client";
 
 import { MutedText, PageHeader, PageTitle, Panel, PanelTitle } from "@/components/app/panel";
+import { SummaryBand } from "@/components/dashboard/summary-band";
 import { formatLongDate } from "@/lib/dates";
-import { rupiah } from "@/lib/format";
 import type { DashboardData } from "@/types/dashboard";
 
 // Susunan halaman utama: ringkasan di atas, tren harian, lalu dua kolom
@@ -17,13 +17,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
         </div>
       </PageHeader>
 
-      <Panel aria-labelledby="dashboard-summary-title">
-        <PanelTitle id="dashboard-summary-title">Ringkasan hari ini</PanelTitle>
-        <MutedText>
-          {rupiah(data.summary.today.amount)} dari {data.summary.today.count}{" "}
-          transaksi · {data.summary.today.leads} leads baru
-        </MutedText>
-      </Panel>
+      <SummaryBand summary={data.summary} />
 
       <Panel aria-labelledby="dashboard-daily-title">
         <PanelTitle id="dashboard-daily-title">Tren penjualan harian</PanelTitle>
