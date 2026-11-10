@@ -111,3 +111,10 @@ export function periodRange(period: "today" | "week" | "month", today: string) {
         : today;
   return { from, to: today };
 }
+
+// "Hari ini", "Kemarin", atau tanggal biasa ("8 Nov 2026") untuk yang lebih lama.
+export function formatRelativeDate(iso: string, today: string) {
+  if (iso === today) return "Hari ini";
+  if (iso === addDays(today, -1)) return "Kemarin";
+  return formatDate(iso);
+}

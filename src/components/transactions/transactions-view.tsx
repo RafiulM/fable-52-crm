@@ -6,7 +6,7 @@ import { AppDialog } from "@/components/app/app-dialog";
 import { ConfirmDialog } from "@/components/app/confirm-dialog";
 import {
   DataTable,
-  EmptyRow,
+  EmptyState,
   TableBody,
   TableHead,
   Td,
@@ -25,7 +25,7 @@ import {
 import { TransactionFormCard } from "@/components/transactions/transaction-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { formatDate, formatTime } from "@/lib/dates";
+import { formatDate, formatRelativeDate, formatTime } from "@/lib/dates";
 import { formatDigits, rupiah } from "@/lib/format";
 import type { SalesMemberOption } from "@/types/dashboard";
 import type { TransactionInput, TransactionItem } from "@/types/transactions";
@@ -237,7 +237,7 @@ export function TransactionsView({
                 {visible.map((item) => (
                   <Tr key={item.id}>
                     <Td label="Tanggal" full mono muted nowrap>
-                      {formatDate(item.transactionDate)} ·{" "}
+                      {formatRelativeDate(item.transactionDate, today)} ·{" "}
                       {formatTime(item.createdAt)}
                     </Td>
                     <Td label="Sales" nowrap className="font-medium">
@@ -271,12 +271,16 @@ export function TransactionsView({
                 ))}
               </TableBody>
             </DataTable>
+          ) : filtered ? (
+            <EmptyState title="Tidak ada transaksi yang cocok dengan filter.">
+              Ubah pilihan sales atau kata pencarian, atau hapus filter untuk
+              melihat semua transaksi.
+            </EmptyState>
           ) : (
-            <EmptyRow>
-              {filtered
-                ? "Tidak ada transaksi yang cocok dengan filter."
-                : "Belum ada transaksi yang dicatat."}
-            </EmptyRow>
+            <EmptyState title="Belum ada transaksi yang dicatat.">
+              Isi form Transaksi baru untuk mencatat penjualan pertama. Angka di
+              dashboard akan ikut terisi.
+            </EmptyState>
           )}
         </Panel>
       </div>

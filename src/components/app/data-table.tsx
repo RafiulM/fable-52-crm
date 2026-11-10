@@ -105,8 +105,23 @@ export function Td({
   );
 }
 
-export function EmptyRow({ children }: { children: React.ReactNode }) {
+// Keadaan kosong di tempat tabel: satu kalimat apa yang kosong, dan (opsional)
+// satu kalimat apa yang bisa dilakukan.
+export function EmptyState({
+  title,
+  children,
+}: {
+  title: React.ReactNode;
+  children?: React.ReactNode;
+}) {
   return (
-    <p className="border-t pt-6 pb-2 text-muted-foreground">{children}</p>
+    <div className="grid gap-1 border-t pt-6 pb-2">
+      <p className="font-medium">{title}</p>
+      {children && (
+        <p className="text-[13px] leading-[1.38] text-muted-foreground">
+          {children}
+        </p>
+      )}
+    </div>
   );
 }
