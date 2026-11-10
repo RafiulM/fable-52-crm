@@ -34,5 +34,9 @@ export const updateSalesMemberSchema = z
 
 export const salesMemberIdSchema = z.string().uuid();
 
+export const listSalesMembersSchema = z
+  .object({ status: z.enum(["all", "active", "inactive"]).default("all") })
+  .strict();
+
 export type CreateSalesMemberInput = z.infer<typeof createSalesMemberSchema>;
 export type UpdateSalesMemberInput = z.infer<typeof updateSalesMemberSchema>;

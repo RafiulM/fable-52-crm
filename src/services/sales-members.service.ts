@@ -43,12 +43,23 @@ export async function isActiveSalesMember(userId: string, id: string) {
   return Boolean(member);
 }
 
-// Semua anggota milik akun ini: yang aktif dulu, lalu urut nama.
-export async function listSalesMembers(userId: string) {
+// Anggota milik akun ini: yang aktif dulu, lalu urut nama. `status`
+// membatasi ke yang aktif atau nonaktif saja.
+export async function listSalesMembers(
+  userId: string,
+  status: "all" | "active" | "inactive" = "all",
+) {
   return db
     .select(fields)
     .from(salesMembers)
-    .where(eq(salesMembers.userId, userId))
+    .where(
+      and(
+        eq(salesMembers.userId, userId),
+        status === "all"
+          ? undefined
+          : eq(salesMembers.isActive, status === "active"),
+      ),
+    )
     .orderBy(
       desc(salesMembers.isActive),
       asc(salesMembers.name),

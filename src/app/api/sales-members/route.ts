@@ -3,15 +3,25 @@ import {
   createSalesMember,
   listSalesMembers,
 } from "@/services/sales-members.service";
-import { createSalesMemberSchema } from "@/validators/sales-members";
+import {
+  createSalesMemberSchema,
+  listSalesMembersSchema,
+} from "@/validators/sales-members";
 
 export const runtime = "nodejs";
 
-// GET /api/sales-members — semua anggota tim milik akun ini beserta status aktifnya.
+// GET /api/sales-members?status=all|active|inactive
+// Anggota tim milik akun ini. status=active dipakai untuk pilihan sales di
+// form transaksi, leads, dan target.
 export function GET(request: Request) {
-  return withApiSession(request, async (session) =>
-    Response.json({ data: await listSalesMembers(session.user.id) }),
-  );
+  return withApiSession(request, async (session) => {
+    const { status } = listSalesMembersSchema.parse(
+      Object.fromEntries(new URL(request.url).searchParams),
+    );
+    return Response.json({
+      data: await listSalesMembers(session.user.id, status),
+    });
+  });
 }
 
 // POST /api/sales-members — mendaftarkan anggota baru (langsung aktif).
