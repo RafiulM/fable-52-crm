@@ -1,3 +1,4 @@
+import { Badge } from "@/components/app/badge";
 import { MutedText, Panel, PanelTitle } from "@/components/app/panel";
 import { Button } from "@/components/ui/button";
 import { formatTime } from "@/lib/dates";
@@ -52,8 +53,9 @@ export function TodayTransactions({
               <span className="font-mono text-[13px] text-muted-foreground [grid-area:time]">
                 {formatTime(item.createdAt)}
               </span>
-              <span className="min-w-0 font-medium [grid-area:name]">
+              <span className="flex min-w-0 flex-wrap items-center gap-2 font-medium [grid-area:name]">
                 {item.salesName}
+                {item.isNew && <Badge>Baru</Badge>}
               </span>
               <span className="min-w-0 text-muted-foreground [grid-area:product]">
                 {item.product || "Tanpa keterangan"}
