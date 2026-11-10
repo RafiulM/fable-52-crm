@@ -6,6 +6,8 @@ export const siteConfig = {
   name: starter.name,
   description: starter.description,
   homePath: "/dashboard",
+  // Awalan nama cookie sesi. Dipakai Better Auth dan pemeriksaan cepat di proxy.
+  cookiePrefix: `ngodingpakeai-${starter.id}`,
   // Semua "hari ini", "minggu ini", dan "bulan ini" dihitung di zona waktu ini.
   timeZone: "Asia/Jakarta",
 } as const;
