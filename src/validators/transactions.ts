@@ -33,6 +33,33 @@ export const createTransactionSchema = z
   })
   .strict();
 
+export const updateTransactionSchema = z
+  .object({
+    salesMemberId: salesMemberId.optional(),
+    amount: amount.optional(),
+    productDescription: productDescription.optional(),
+    transactionDate: transactionDate.optional(),
+  })
+  .strict()
+  .refine(
+    (value) => Object.values(value).some((field) => field !== undefined),
+    "Sertakan minimal satu isian yang diubah.",
+  );
+
 export const transactionIdSchema = z.string().uuid();
 
+export const listTransactionsSchema = z
+  .object({
+    limit: z.coerce.number().int().min(1).max(100).default(50),
+    offset: z.coerce.number().int().min(0).max(1_000_000).default(0),
+    salesMemberId: salesMemberId.optional(),
+    // Cari di keterangan produk.
+    q: z.string().trim().max(100).optional(),
+    from: isoDateSchema.optional(),
+    to: isoDateSchema.optional(),
+  })
+  .strict();
+
 export type CreateTransactionInput = z.infer<typeof createTransactionSchema>;
+export type UpdateTransactionInput = z.infer<typeof updateTransactionSchema>;
+export type ListTransactionsInput = z.infer<typeof listTransactionsSchema>;

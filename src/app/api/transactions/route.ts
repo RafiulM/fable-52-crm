@@ -1,8 +1,25 @@
 import { ApiError, readJson, withApiSession } from "@/lib/api";
-import { createTransaction } from "@/services/transactions.service";
-import { createTransactionSchema } from "@/validators/transactions";
+import {
+  createTransaction,
+  listTransactions,
+} from "@/services/transactions.service";
+import {
+  createTransactionSchema,
+  listTransactionsSchema,
+} from "@/validators/transactions";
 
 export const runtime = "nodejs";
+
+// GET /api/transactions?limit=&offset=&salesMemberId=&q=&from=&to=
+// Riwayat transaksi akun ini, terbaru dulu, dengan total sesuai filter.
+export function GET(request: Request) {
+  return withApiSession(request, async (session) => {
+    const query = listTransactionsSchema.parse(
+      Object.fromEntries(new URL(request.url).searchParams),
+    );
+    return Response.json(await listTransactions(session.user.id, query));
+  });
+}
 
 // POST /api/transactions
 // Mencatat satu penjualan untuk anggota sales aktif milik akun ini.
