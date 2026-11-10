@@ -52,7 +52,10 @@ export function addMonths(iso: string, months: number) {
 }
 
 function format(iso: string, options: Intl.DateTimeFormatOptions) {
-  return toUtc(iso).toLocaleDateString("id-ID", { timeZone: "UTC", ...options });
+  return toUtc(iso).toLocaleDateString("id-ID", {
+    timeZone: "UTC",
+    ...options,
+  });
 }
 
 // "Kamis, 12 November 2026"
@@ -96,4 +99,15 @@ export function formatTime(value: string | Date) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+// Rentang tanggal (inklusif) untuk periode berjalan sampai hari ini.
+export function periodRange(period: "today" | "week" | "month", today: string) {
+  const from =
+    period === "week"
+      ? startOfWeek(today)
+      : period === "month"
+        ? startOfMonth(today)
+        : today;
+  return { from, to: today };
 }
