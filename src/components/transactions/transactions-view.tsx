@@ -1,8 +1,9 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Pencil } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { AppDialog } from "@/components/app/app-dialog";
+import { ConfirmDialog } from "@/components/app/confirm-dialog";
 import {
   DataTable,
   EmptyRow,
@@ -53,6 +54,9 @@ export function TransactionsView({
   );
   const [notice, setNotice] = useState<NoticeState>(null);
   const [editing, setEditing] = useState<TransactionItem | null>(null);
+  const [deleting, setDeleting] = useState<TransactionItem | null>(null);
+  // Setelah baris dihapus tombolnya ikut hilang, jadi fokus pindah ke judul riwayat.
+  const historyTitleRef = useRef<HTMLHeadingElement>(null);
   const [filterSales, setFilterSales] = useState("");
   const [query, setQuery] = useState("");
   const sequence = useRef(0);
@@ -114,6 +118,15 @@ export function TransactionsView({
     });
   }
 
+  async function deleteTransaction(target: TransactionItem) {
+    setTransactions((list) => list.filter((item) => item.id !== target.id));
+    setDeleting(null);
+    setNotice({
+      tone: "success",
+      message: `Transaksi ${rupiah(target.amount)} milik ${target.salesName} dihapus.`,
+    });
+  }
+
   // Saat mengubah, sales pemilik transaksi tetap bisa dipilih walau sudah
   // nonaktif (tidak ada di daftar sales aktif).
   function membersFor(item: TransactionItem) {
@@ -158,7 +171,12 @@ export function TransactionsView({
 
         <Panel aria-labelledby="transaction-history-title">
           <div className="grid gap-1">
-            <PanelTitle id="transaction-history-title">
+            <PanelTitle
+              id="transaction-history-title"
+              ref={historyTitleRef}
+              tabIndex={-1}
+              className="outline-none"
+            >
               Riwayat transaksi
             </PanelTitle>
             <MutedText>
@@ -240,6 +258,14 @@ export function TransactionsView({
                       >
                         <Pencil aria-hidden="true" />
                       </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Hapus transaksi ${item.salesName} ${rupiah(item.amount)}`}
+                        onClick={() => setDeleting(item)}
+                      >
+                        <Trash2 aria-hidden="true" />
+                      </Button>
                     </Td>
                   </Tr>
                 ))}
@@ -280,6 +306,30 @@ export function TransactionsView({
           />
         )}
       </AppDialog>
+
+      <ConfirmDialog
+        open={Boolean(deleting)}
+        onOpenChange={(open) => {
+          if (!open) setDeleting(null);
+        }}
+        title="Hapus transaksi ini?"
+        description="Transaksi yang dihapus tidak bisa dikembalikan, dan angka dashboard ikut berubah."
+        confirmLabel="Hapus transaksi"
+        pendingLabel="Menghapus…"
+        fallbackFocus={historyTitleRef}
+        onConfirm={async () => {
+          if (deleting) await deleteTransaction(deleting);
+        }}
+      >
+        {deleting && (
+          <p className="rounded-md bg-muted px-4 py-3">
+            {deleting.salesName} ·{" "}
+            {deleting.productDescription || "Tanpa keterangan"} ·{" "}
+            <span className="font-mono">{rupiah(deleting.amount)}</span> ·{" "}
+            {formatDate(deleting.transactionDate)}
+          </p>
+        )}
+      </ConfirmDialog>
     </div>
   );
 }
