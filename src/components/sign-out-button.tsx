@@ -6,7 +6,8 @@ import { LogOut } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 
-export function SignOutButton() {
+// `compact` menampilkan ikon saja, untuk menu samping.
+export function SignOutButton({ compact = false }: { compact?: boolean }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState(false);
   const router = useRouter();
@@ -28,13 +29,26 @@ export function SignOutButton() {
     <div className="flex flex-wrap items-center gap-2">
       {error && (
         <p role="alert" className="text-sm text-destructive">
-          Couldn’t sign out. Try again.
+          Gagal keluar. Coba lagi.
         </p>
       )}
-      <Button onClick={signOut} disabled={pending} variant="outline" size="sm">
-        <LogOut aria-hidden="true" />
-        {pending ? "Signing out…" : "Sign out"}
-      </Button>
+      {compact ? (
+        <Button
+          onClick={signOut}
+          disabled={pending}
+          variant="ghost"
+          size="icon"
+          aria-label="Keluar dari akun"
+          title="Keluar"
+        >
+          <LogOut aria-hidden="true" />
+        </Button>
+      ) : (
+        <Button onClick={signOut} disabled={pending} variant="outline">
+          <LogOut aria-hidden="true" />
+          {pending ? "Sedang keluar…" : "Keluar dari akun"}
+        </Button>
+      )}
     </div>
   );
 }

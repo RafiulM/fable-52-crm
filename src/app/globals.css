@@ -12,6 +12,9 @@
   --color-popover-foreground: var(--foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-quiet: var(--primary-quiet);
+  --color-primary-text: var(--primary-text);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--foreground);
   --color-muted: var(--muted);
@@ -19,44 +22,68 @@
   --color-accent: var(--secondary);
   --color-accent-foreground: var(--foreground);
   --color-destructive: var(--destructive);
+  --color-positive: var(--positive);
+  --color-warning: var(--warning);
   --color-border: var(--border);
-  --color-input: var(--border);
-  --color-ring: var(--primary);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--border-strong);
+  --color-ring: var(--ring);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-  --font-sans: Arial, Helvetica, sans-serif;
-  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --font-sans: var(--font-inter), "Helvetica Neue", Arial, sans-serif;
+  --font-mono:
+    var(--font-geist-mono), "SFMono-Regular", Consolas, "Liberation Mono",
+    monospace;
 }
 
+/*
+  Tema "ledger": permukaan putih, tinta hampir hitam, dan satu aksen lime.
+  Lime (--primary) hanya untuk isian: tombol utama, penanda pilihan, rel aktif.
+  Untuk teks berwarna lime di atas putih pakai --primary-text agar tetap terbaca.
+*/
 :root {
-  --radius: 0.75rem;
-  --background: #fafafa;
-  --foreground: #191919;
+  --radius: 0.5rem;
+  --background: #f7f7f2;
+  --foreground: #0c0a08;
   --card: #ffffff;
-  --card-foreground: #191919;
-  --primary: #bb371e;
-  --primary-foreground: #ffffff;
-  --secondary: #f0f0ef;
-  --muted: #f4f4f3;
-  --muted-foreground: #656561;
-  --border: #e4e4e1;
-  --destructive: #b91c1c;
+  --card-foreground: #0c0a08;
+  --primary: #e4f222;
+  --primary-foreground: #0c0a08;
+  --primary-hover: #c9d61e;
+  --primary-quiet: #f4f8b8;
+  --primary-text: #6e7601;
+  --secondary: #f0f1e8;
+  --muted: #f0f1e8;
+  --muted-foreground: #66675f;
+  --border: #e5e7eb;
+  --border-strong: #b8baae;
+  --ring: #596200;
+  --destructive: #b42318;
+  --positive: #137a4a;
+  --warning: #a65d00;
 }
 
 .dark {
-  --background: #161616;
-  --foreground: #f5f5f4;
-  --card: #202020;
-  --card-foreground: #f5f5f4;
-  --primary: #fb846b;
-  --primary-foreground: #29100a;
-  --secondary: #2d2d2b;
-  --muted: #252525;
-  --muted-foreground: #b0b0aa;
-  --border: #3b3b37;
-  --destructive: #ff8a8a;
+  --background: #141412;
+  --foreground: #f5f5f0;
+  --card: #1e1e1b;
+  --card-foreground: #f5f5f0;
+  --primary: #e4f222;
+  --primary-foreground: #0c0a08;
+  --primary-hover: #c9d61e;
+  --primary-quiet: #3a3d12;
+  --primary-text: #d7e44a;
+  --secondary: #2a2a26;
+  --muted: #262622;
+  --muted-foreground: #adaea4;
+  --border: #3a3a35;
+  --border-strong: #5a5b52;
+  --ring: #d7e44a;
+  --destructive: #ff8a7a;
+  --positive: #5fd39a;
+  --warning: #f0b35a;
 }
 
 @layer base {
@@ -64,7 +91,7 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground font-sans antialiased;
+    @apply bg-background font-sans text-[15px] leading-[1.4] text-foreground antialiased;
   }
   button,
   a,
@@ -78,6 +105,6 @@
     cursor: pointer;
   }
   ::selection {
-    background: #bb371e22;
+    background: var(--primary-quiet);
   }
 }

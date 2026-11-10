@@ -1,7 +1,7 @@
 {
   "id": "postgres",
-  "name": "Base Postgres",
-  "description": "An AI-friendly foundation with Drizzle and PostgreSQL.",
+  "name": "Performa Sales",
+  "description": "Dashboard untuk memantau penjualan, leads, konversi, dan target tim sales.",
   "baseVersion": "0.1.0",
   "database": "postgresql"
 }

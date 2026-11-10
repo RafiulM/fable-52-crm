@@ -5,5 +5,7 @@ export const siteConfig = {
   id: starter.id,
   name: starter.name,
   description: starter.description,
-  homePath: "/app",
+  homePath: "/dashboard",
+  // Semua "hari ini", "minggu ini", dan "bulan ini" dihitung di zona waktu ini.
+  timeZone: "Asia/Jakarta",
 } as const;
