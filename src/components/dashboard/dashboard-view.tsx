@@ -1,16 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import {
-  MutedText,
-  PageHeader,
-  PageTitle,
-  Panel,
-  PanelTitle,
-} from "@/components/app/panel";
+import { MutedText, PageHeader, PageTitle } from "@/components/app/panel";
+import { DailyTrend } from "@/components/dashboard/daily-trend";
 import { SalesComparison } from "@/components/dashboard/sales-comparison";
 import { SummaryBand } from "@/components/dashboard/summary-band";
 import { TodayTransactions } from "@/components/dashboard/today-transactions";
+import { WeekTrend } from "@/components/dashboard/week-trend";
 import { formatLongDate } from "@/lib/dates";
 import type { DashboardData } from "@/types/dashboard";
 
@@ -35,10 +31,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
 
       <SummaryBand summary={data.summary} />
 
-      <Panel aria-labelledby="dashboard-daily-title">
-        <PanelTitle id="dashboard-daily-title">Tren penjualan harian</PanelTitle>
-        <MutedText>{data.daily.length} hari terakhir</MutedText>
-      </Panel>
+      <DailyTrend daily={data.daily} today={data.today} />
 
       <div className="grid gap-6 @min-[1000px]/page:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
         <SalesComparison
@@ -46,12 +39,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
           selectedSalesId={selectedSalesId}
           onSelectSales={setSelectedSalesId}
         />
-        <Panel aria-labelledby="dashboard-week-title">
-          <PanelTitle id="dashboard-week-title">
-            Minggu ini vs minggu lalu
-          </PanelTitle>
-          <MutedText>Senin sampai Minggu</MutedText>
-        </Panel>
+        <WeekTrend week={data.week} today={data.today} />
       </div>
 
       <TodayTransactions
