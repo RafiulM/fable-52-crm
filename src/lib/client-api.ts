@@ -17,7 +17,7 @@ const FALLBACK = "Permintaan belum berhasil. Coba lagi.";
 export async function apiFetch<Data>(
   url: string,
   options: {
-    method?: "GET" | "POST" | "PATCH" | "DELETE";
+    method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
     body?: unknown;
   } = {},
 ): Promise<Data> {
