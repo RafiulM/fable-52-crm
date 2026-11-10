@@ -1,4 +1,5 @@
 import {
+  ChartColumn,
   Contact,
   LayoutDashboard,
   ReceiptText,
@@ -14,4 +15,5 @@ export const navItems: NavItem[] = [
   { href: "/transaksi", label: "Catat Penjualan", icon: ReceiptText },
   { href: "/leads", label: "Leads & Kontak", icon: Contact },
   { href: "/target", label: "Target", icon: Target },
+  { href: "/laporan", label: "Laporan", icon: ChartColumn },
 ];
