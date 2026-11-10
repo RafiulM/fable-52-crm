@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   ReceiptText,
   Target,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 
@@ -16,4 +17,5 @@ export const navItems: NavItem[] = [
   { href: "/leads", label: "Leads & Kontak", icon: Contact },
   { href: "/target", label: "Target", icon: Target },
   { href: "/laporan", label: "Laporan", icon: ChartColumn },
+  { href: "/tim", label: "Tim Sales", icon: Users },
 ];
