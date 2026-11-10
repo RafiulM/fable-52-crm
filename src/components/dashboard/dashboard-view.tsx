@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { Notice, type NoticeState } from "@/components/app/notice";
 import { MutedText, PageHeader, PageTitle } from "@/components/app/panel";
@@ -14,48 +15,53 @@ import { SummaryBand } from "@/components/dashboard/summary-band";
 import { TodayTransactions } from "@/components/dashboard/today-transactions";
 import { WeekTrend } from "@/components/dashboard/week-trend";
 import { Button } from "@/components/ui/button";
-import { withNewTransactions } from "@/lib/dashboard";
+import { useAutoRefresh } from "@/hooks/use-auto-refresh";
+import { apiFetch } from "@/lib/client-api";
 import { formatLongDate } from "@/lib/dates";
 import { rupiah } from "@/lib/format";
-import type { DashboardData, DashboardTransaction } from "@/types/dashboard";
+import type { DashboardData } from "@/types/dashboard";
 
 // Susunan halaman utama: ringkasan di atas, tren harian, lalu dua kolom
 // (perbandingan sales dan tren mingguan), dan transaksi hari ini di bawah.
+// Semua angka datang dari server; halaman memuat ulang sendiri setelah ada
+// pencatatan baru, saat tab kembali aktif, dan tiap satu menit.
 export function DashboardView({ data }: { data: DashboardData }) {
+  const router = useRouter();
   // Sales yang dipilih di bagan perbandingan menyaring daftar transaksi.
   const [selectedSalesId, setSelectedSalesId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [notice, setNotice] = useState<NoticeState>(null);
-  // Transaksi yang baru dicatat di sesi ini. Semua angka di halaman dihitung
-  // ulang darinya, jadi dashboard langsung ikut berubah.
-  const [added, setAdded] = useState<DashboardTransaction[]>([]);
-  const sequence = useRef(0);
+  // Transaksi yang dicatat di sesi ini, untuk tanda "Baru" di daftar.
+  const [newIds, setNewIds] = useState<string[]>([]);
 
-  const view = withNewTransactions(data, added);
+  useAutoRefresh();
+
   const selectedSales =
-    data.salesMembers.find((member) => member.id === selectedSalesId) ?? null;
+    data.comparison.today
+      .map((row) => ({ id: row.salesId, name: row.name }))
+      .find((member) => member.id === selectedSalesId) ?? null;
 
   async function recordSale(input: RecordSaleInput) {
-    const member = data.salesMembers.find((item) => item.id === input.salesId);
-    if (!member) throw new Error("Sales tidak ditemukan. Muat ulang halaman.");
-    sequence.current += 1;
-    setAdded((list) => [
+    const created = await apiFetch<{ id: string; salesName: string }>(
+      "/api/transactions",
       {
-        id: `baru-${sequence.current}`,
-        createdAt: new Date().toISOString(),
-        salesId: member.id,
-        salesName: member.name,
-        product: input.product,
-        amount: input.amount,
-        isNew: true,
+        method: "POST",
+        body: {
+          salesMemberId: input.salesId,
+          amount: input.amount,
+          productDescription: input.product,
+          transactionDate: data.today,
+        },
       },
-      ...list,
-    ]);
+    );
+    setNewIds((ids) => [created.id, ...ids]);
     setDialogOpen(false);
     setNotice({
       tone: "success",
-      message: `Transaksi ${rupiah(input.amount)} untuk ${member.name} tersimpan. Angka dashboard sudah diperbarui.`,
+      message: `Transaksi ${rupiah(input.amount)} untuk ${created.salesName} tersimpan. Angka dashboard sudah diperbarui.`,
     });
+    // Ambil ulang semua hitungan dari server.
+    router.refresh();
   }
 
   return (
@@ -64,7 +70,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
         <PageHeader>
           <div className="grid gap-1">
             <PageTitle>Dashboard</PageTitle>
-            <MutedText>{formatLongDate(view.today)}</MutedText>
+            <MutedText>{formatLongDate(data.today)}</MutedText>
           </div>
           <Button size="lg" onClick={() => setDialogOpen(true)}>
             <Plus aria-hidden="true" />
@@ -74,21 +80,22 @@ export function DashboardView({ data }: { data: DashboardData }) {
         <Notice notice={notice} onDismiss={() => setNotice(null)} />
       </div>
 
-      <SummaryBand summary={view.summary} />
+      <SummaryBand summary={data.summary} />
 
-      <DailyTrend daily={view.daily} today={view.today} />
+      <DailyTrend daily={data.daily} today={data.today} />
 
       <div className="grid gap-6 @min-[1000px]/page:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
         <SalesComparison
-          comparison={view.comparison}
+          comparison={data.comparison}
           selectedSalesId={selectedSalesId}
           onSelectSales={setSelectedSalesId}
         />
-        <WeekTrend week={view.week} today={view.today} />
+        <WeekTrend week={data.week} today={data.today} />
       </div>
 
       <TodayTransactions
-        transactions={view.transactions}
+        transactions={data.transactions}
+        newIds={newIds}
         selectedSales={selectedSales}
         onClearFilter={() => setSelectedSalesId(null)}
       />
@@ -96,8 +103,8 @@ export function DashboardView({ data }: { data: DashboardData }) {
       <RecordSaleDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        salesMembers={view.salesMembers}
-        today={view.today}
+        salesMembers={data.salesMembers}
+        today={data.today}
         onSubmit={recordSale}
       />
     </div>

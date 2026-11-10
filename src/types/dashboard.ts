@@ -22,8 +22,6 @@ export type DashboardTransaction = {
   salesName: string;
   product: string;
   amount: number;
-  // Baru dicatat di sesi ini; ditandai "Baru" di daftar.
-  isNew?: boolean;
 };
 
 export type DashboardData = {

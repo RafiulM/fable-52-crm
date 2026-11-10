@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import { DashboardView } from "@/components/dashboard/dashboard-view";
+import { todayIso } from "@/lib/dates";
 import { requireSession } from "@/lib/session";
-import { getMockDashboard } from "@/mocks/dashboard";
+import { getDashboard } from "@/services/dashboard.service";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
 export default async function DashboardPage() {
-  await requireSession();
-  // Sementara memakai data tiruan; nanti diganti layanan dashboard.
-  const data = getMockDashboard();
+  const { user } = await requireSession();
+  const data = await getDashboard(user.id, todayIso());
   return <DashboardView data={data} />;
 }

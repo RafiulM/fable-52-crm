@@ -2,8 +2,10 @@ import "server-only";
 import { and, asc, eq, gte, isNotNull, lte, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { leads, salesMembers, transactions } from "@/db/schema";
-import { addDays, startOfMonth, startOfWeek } from "@/lib/dates";
+import { addDays, periodRange, startOfMonth, startOfWeek } from "@/lib/dates";
 import { WON_STATUS } from "@/lib/lead-status";
+import { listActiveSalesMembers } from "@/services/sales-members.service";
+import { listTransactionsOnDate } from "@/services/transactions.service";
 import type { DashboardData, SalesStat } from "@/types/dashboard";
 
 // Semua angka dashboard dihitung di database dari data mentah milik akun yang
@@ -191,4 +193,50 @@ export async function getDailyTrend(
     const date = addDays(from, index);
     return { date, amount: totals.get(date) ?? 0 };
   });
+}
+
+// Seluruh data halaman dashboard. Dipanggil halaman saat dirender dan oleh
+// GET /api/dashboard, jadi tampilan dan API selalu memakai hitungan yang sama.
+export async function getDashboard(
+  userId: string,
+  today: string,
+): Promise<DashboardData> {
+  const week = periodRange("week", today);
+  const month = periodRange("month", today);
+  const [
+    salesMembers,
+    summary,
+    todayStats,
+    weekStats,
+    monthStats,
+    weekTrend,
+    daily,
+    todayTransactions,
+  ] = await Promise.all([
+    listActiveSalesMembers(userId),
+    getDashboardSummary(userId, today),
+    getSalesComparison(userId, today, today),
+    getSalesComparison(userId, week.from, week.to),
+    getSalesComparison(userId, month.from, month.to),
+    getWeekTrend(userId, today),
+    getDailyTrend(userId, today),
+    listTransactionsOnDate(userId, today),
+  ]);
+
+  return {
+    today,
+    salesMembers,
+    summary,
+    comparison: { today: todayStats, week: weekStats, month: monthStats },
+    week: weekTrend,
+    daily,
+    transactions: todayTransactions.map((item) => ({
+      id: item.id,
+      createdAt: item.createdAt.toISOString(),
+      salesId: item.salesMemberId,
+      salesName: item.salesName,
+      product: item.productDescription,
+      amount: item.amount,
+    })),
+  };
 }

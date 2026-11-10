@@ -12,10 +12,13 @@ import type {
 // lewat bagan perbandingan.
 export function TodayTransactions({
   transactions,
+  newIds,
   selectedSales,
   onClearFilter,
 }: {
   transactions: DashboardTransaction[];
+  // Transaksi yang dicatat di sesi ini; diberi tanda "Baru".
+  newIds: string[];
   selectedSales: SalesMemberOption | null;
   onClearFilter: () => void;
 }) {
@@ -55,7 +58,7 @@ export function TodayTransactions({
               </span>
               <span className="flex min-w-0 flex-wrap items-center gap-2 font-medium [grid-area:name]">
                 {item.salesName}
-                {item.isNew && <Badge>Baru</Badge>}
+                {newIds.includes(item.id) && <Badge>Baru</Badge>}
               </span>
               <span className="min-w-0 text-muted-foreground [grid-area:product]">
                 {item.product || "Tanpa keterangan"}
