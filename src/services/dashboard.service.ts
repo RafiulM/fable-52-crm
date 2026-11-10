@@ -2,7 +2,7 @@ import "server-only";
 import { and, asc, eq, gte, isNotNull, lte, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { leads, salesMembers, transactions } from "@/db/schema";
-import { addDays, startOfMonth } from "@/lib/dates";
+import { addDays, startOfMonth, startOfWeek } from "@/lib/dates";
 import { WON_STATUS } from "@/lib/lead-status";
 import type { DashboardData, SalesStat } from "@/types/dashboard";
 
@@ -138,4 +138,57 @@ export async function getSalesComparison(
       ),
     )
     .orderBy(asc(salesMembers.name), asc(salesMembers.id));
+}
+
+// Total penjualan per tanggal pada rentang (inklusif). Tanggal tanpa
+// transaksi tidak ada di Map; pemanggil menganggapnya 0.
+async function dailyTotals(userId: string, from: string, to: string) {
+  const rows = await db
+    .select({
+      date: transactions.transactionDate,
+      amount: sql`sum(${transactions.amount})`.mapWith(Number),
+    })
+    .from(transactions)
+    .where(
+      and(
+        eq(transactions.userId, userId),
+        gte(transactions.transactionDate, from),
+        lte(transactions.transactionDate, to),
+      ),
+    )
+    .groupBy(transactions.transactionDate);
+  return new Map(rows.map((row) => [row.date, row.amount]));
+}
+
+// Omzet per hari minggu ini (Senin–Minggu) berdampingan dengan hari yang sama
+// minggu lalu. Hari yang belum terjadi diberi `current: null`.
+export async function getWeekTrend(
+  userId: string,
+  today: string,
+): Promise<DashboardData["week"]> {
+  const weekStart = startOfWeek(today);
+  const totals = await dailyTotals(userId, addDays(weekStart, -7), today);
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = addDays(weekStart, index);
+    return {
+      date,
+      current: date <= today ? (totals.get(date) ?? 0) : null,
+      previous: totals.get(addDays(date, -7)) ?? 0,
+    };
+  });
+}
+
+// Omzet harian untuk `days` hari terakhir termasuk hari ini, urut dari yang
+// paling lama. Hari tanpa penjualan tetap ada dengan nilai 0.
+export async function getDailyTrend(
+  userId: string,
+  today: string,
+  days = 30,
+): Promise<DashboardData["daily"]> {
+  const from = addDays(today, -(days - 1));
+  const totals = await dailyTotals(userId, from, today);
+  return Array.from({ length: days }, (_, index) => {
+    const date = addDays(from, index);
+    return { date, amount: totals.get(date) ?? 0 };
+  });
 }
