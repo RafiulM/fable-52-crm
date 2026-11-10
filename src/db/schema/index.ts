@@ -8,3 +8,4 @@ export * from "./sales-members";
 export * from "./transactions";
 export * from "./leads";
 export * from "./targets";
+export * from "./team-profile";

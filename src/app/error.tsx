@@ -9,13 +9,19 @@ export default function ErrorPage({
   reset: () => void;
 }) {
   return (
-    <main id="main-content" className="mx-auto max-w-lg px-6 py-24">
-      <h1 className="text-2xl font-semibold">Something went wrong</h1>
-      <p className="my-4 leading-7 text-muted-foreground">
-        Try loading this page again. If it keeps happening, check the terminal
-        running your app for details.
+    <main id="main-content" className="mx-auto grid max-w-lg gap-4 px-6 py-24">
+      <h1 className="text-[25px] leading-[1.2] font-medium">
+        Halaman ini gagal dimuat
+      </h1>
+      <p className="text-muted-foreground">
+        Coba muat ulang. Kalau masih gagal, periksa apakah database sedang
+        berjalan, lalu lihat pesan di terminal tempat aplikasi dijalankan.
       </p>
-      <Button onClick={reset}>Try again</Button>
+      <div>
+        <Button size="lg" onClick={reset}>
+          Muat ulang
+        </Button>
+      </div>
     </main>
   );
 }

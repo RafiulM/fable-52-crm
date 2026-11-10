@@ -3,17 +3,19 @@ import { Button } from "@/components/ui/button";
 
 export default function NotFound() {
   return (
-    <main id="main-content" className="mx-auto max-w-lg px-6 py-24">
-      <p className="mb-3 font-mono text-sm text-primary">404</p>
-      <h1 className="text-3xl font-semibold tracking-tight">
-        This page isn’t here
+    <main id="main-content" className="mx-auto grid max-w-lg gap-4 px-6 py-24">
+      <p className="font-mono text-sm text-muted-foreground">404</p>
+      <h1 className="text-[25px] leading-[1.2] font-medium">
+        Halaman ini tidak ada
       </h1>
-      <p className="my-4 text-muted-foreground">
-        Head back to your starting point.
+      <p className="text-muted-foreground">
+        Alamatnya mungkin salah ketik, atau halamannya sudah dipindahkan.
       </p>
-      <Button asChild>
-        <Link href="/">Go home</Link>
-      </Button>
+      <div>
+        <Button asChild size="lg">
+          <Link href="/">Kembali ke dashboard</Link>
+        </Button>
+      </div>
     </main>
   );
 }

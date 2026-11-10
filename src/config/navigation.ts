@@ -3,6 +3,7 @@ import {
   Contact,
   LayoutDashboard,
   ReceiptText,
+  Settings,
   Target,
   Users,
   type LucideIcon,
@@ -18,4 +19,5 @@ export const navItems: NavItem[] = [
   { href: "/target", label: "Target", icon: Target },
   { href: "/laporan", label: "Laporan", icon: ChartColumn },
   { href: "/tim", label: "Tim Sales", icon: Users },
+  { href: "/pengaturan", label: "Pengaturan", icon: Settings },
 ];

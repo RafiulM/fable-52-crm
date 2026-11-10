@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
-import { Brand } from "@/components/brand";
 import { getSession } from "@/lib/session";
 import { siteConfig } from "@/config/site";
 
+// Halaman masuk dan daftar. Kalau sudah masuk, langsung ke dashboard.
 export default async function AuthLayout({
   children,
 }: {
@@ -10,16 +10,11 @@ export default async function AuthLayout({
 }) {
   if (await getSession()) redirect(siteConfig.homePath);
   return (
-    <div className="min-h-svh">
-      <header className="mx-auto max-w-6xl px-6 py-6 sm:px-10">
-        <Brand />
-      </header>
-      <main
-        id="main-content"
-        className="mx-auto flex min-h-[75svh] max-w-6xl items-center justify-center px-6 py-12"
-      >
-        {children}
-      </main>
-    </div>
+    <main
+      id="main-content"
+      className="grid min-h-svh place-items-center px-4 py-6"
+    >
+      {children}
+    </main>
   );
 }
