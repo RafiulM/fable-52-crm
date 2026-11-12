@@ -24,6 +24,7 @@ playwright-report
 playwright.config.ts
 compose.dev.yaml
 compose.test.yaml
+compose.coolify.yaml
 Dockerfile
 .dockerignore
 

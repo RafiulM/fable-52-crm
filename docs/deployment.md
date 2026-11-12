@@ -54,6 +54,17 @@ The app listens on `PORT` (default `3000`) and `HOSTNAME` (default `0.0.0.0`), a
 
 Rebuild the image for each release. The image holds no data, so scale it horizontally and keep the connection-pool guidance below in mind. Set `ARG NODE_VERSION` to pin a specific Node.js tag.
 
+## Coolify
+
+`compose.coolify.yaml` runs the whole stack on [Coolify](https://coolify.io) with the Docker Compose build pack: PostgreSQL 17 in a named volume, the `migrator` target as a one-off job, and the `runner` target as the app. The app starts only after migrations succeed.
+
+1. Create an application from this repository and choose **Docker Compose** as the build pack.
+2. Set **Docker Compose Location** to `/compose.coolify.yaml`.
+3. Assign your public `https://` domain to the `app` service.
+4. Deploy.
+
+Coolify generates `SERVICE_PASSWORD_POSTGRES` and `SERVICE_BASE64_64_AUTHSECRET` once and keeps them between deployments, and sets `BETTER_AUTH_URL` from the domain on `app`. Changing the domain therefore needs a redeploy, not an edit here. The database is reachable only inside the stack's network; back up the `postgres-data` volume.
+
 ## Connection pooling
 
 The app uses a shared node-postgres pool with at most five connections per process and a connection timeout. Development hot reloads reuse that pool. Multiple instances multiply the connection count: use your database provider's recommended pooler and tune the pool size to the deployment. Verify your host supports Node.js and TCP PostgreSQL connections. No Edge-specific driver is included.
